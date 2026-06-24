@@ -18,6 +18,7 @@
 //  v0.1.8: Tweak error detection of overlapping measure boundaries
 //  v0.1.9: Add append-measure when over the last measure
 //  v0.2.0: Fix removing objects in voice2,3,4
+//  v0.2.1: Avoid crash when a single tuplet mark is selected
 //===========================================================================
 
 import QtQuick 2.0
@@ -27,7 +28,7 @@ import "TupletCommon.js" as TC
 MuseScore {
     title: qsTr("Convert from Tuplet")
     description: qsTr("Remove a tuplet which includes a selection of notes and rests.")
-    version: "0.2.0"
+    version: "0.2.1"
     categoryCode: "composing-arranging-tools"
 
     property var selection: false
@@ -90,10 +91,11 @@ MuseScore {
         try {
             selection = TC.readSelection()
             TC.parseSelection()
+            curScore.selection.clear()  // v0.2.1 We should clear selection before removing elements
             if (readableElements.length > 0) {
                 selection.endSegment = removeTuplet()  // v0.1.7
             }
-            curScore.selection.clear()
+            //curScore.selection.clear()
             TC.writeSelection(selection)
             curScore.endCmd()
         } catch (e) {

@@ -18,6 +18,7 @@
 //  v0.1.8: Tweak error detection of overlapping measure boundaries
 //  v0.1.9: Add append-measure when over the last measure
 //  v0.2.0: Fix removing objects in voice2,3,4
+//  v0.2.1: Avoid crash when a single tuplet mark is selected
 //===========================================================================
 
     /// Written by futamapapa
@@ -75,9 +76,8 @@
             //removeElement(parsedElements[i])
             cursor.track = range[0]
             cursor.rewindToFraction(range[1])
+            console.log("CHECK---remeving element#" + i + ": " + parsedElements[i].userName())
             removeElement(parsedElements[i])  // v0.2.0 We should not remove all elements before cursor.rewind (in voice2,3,4)
-            cursor.setDuration(range[2].numerator, range[2].denominator)
-            cursor.addRest()  // v0.2.0 We should leave a segment in voice2,3,4
             /* v0.2.0 remove this
             if (cursor.element) {
                 do {
@@ -85,6 +85,9 @@
                 } while (cursor.next() && cursor.fraction.lessThan(range[1].plus(range[2])))
             }
             */
+        }
+        for (var i in parsedElements) {
+            console.log("CHECK---remaining parsedElement #" + i + ": " + parsedElements[i].userName() + " in track:" + parsedElements[i].track)
         }
     }
 
@@ -122,18 +125,50 @@
         }
     }
 
+    // Creates a readable object from a tuplet
+    function getTupletObj(tuplet) {
+        return {
+            element: tuplet,  // v0.1.6
+            type: tuplet.type,
+            duration: tuplet.duration,
+            actualDuration: tuplet.actualDuration,
+            startTick: tuplet.fraction,
+            track: tuplet.track,
+            elements: getTupletElements(tuplet),
+            ratio: fraction(tuplet.actualNotes, tuplet.normalNotes),
+            bracketType: tuplet.bracketType,
+            numberType: tuplet.numberType,
+            visible: tuplet.visible
+        }
+    }
+
+    // Modified by futamapapa
+    // Returns the chords, rests and child tuplets within a tuplet
+    function getTupletElements(tuplet) {
+        var elementsArray = []
+        for (var i in tuplet.elements) {
+            if (tuplet.elements[i].type == Element.TUPLET) {
+                elementsArray.push(getTupletObj(tuplet.elements[i]))
+            } else {
+                elementsArray.push(getChordRestObj(tuplet.elements[i]))
+            }
+        }
+        elementsArray.sort(regularSort)
+        return elementsArray
+    }
+
     // Modified by futamapapa
     // Creates a readable object from a chord/rest
     function getChordRestObj(element) {
         getTies(element)
         return {
             element: element,  // v0.1.5
+            type: element.type,
             duration: element.duration,
             actualDuration: element.actualDuration,
-            notes: getNotes(element),
             startTick: element.fraction,
             track: element.track,
-            type: element.type,
+            notes: getNotes(element),
             annotations: getAnnotations(element),
             articulations: getArticulations(element),
             graceNotes: getGraceNotes(element),
@@ -281,38 +316,6 @@
         })
     }
 
-    // Creates a readable object from a tuplet
-    function getTupletObj(tuplet) {
-        return {
-            element: tuplet,  // v0.1.6
-            duration: tuplet.duration,
-            actualDuration: tuplet.actualDuration,
-            type: tuplet.type,
-            startTick: tuplet.fraction,
-            track: tuplet.track,
-            elements: getTupletElements(tuplet),
-            ratio: fraction(tuplet.actualNotes, tuplet.normalNotes),
-            bracketType: tuplet.bracketType,
-            numberType: tuplet.numberType,
-            visible: tuplet.visible
-        }
-    }
-
-    // Modified by futamapapa
-    // Returns the chords, rests and child tuplets within a tuplet
-    function getTupletElements(tuplet) {
-        var elementsArray = []
-        for (var i in tuplet.elements) {
-            if (tuplet.elements[i].type == Element.TUPLET) {
-                elementsArray.push(getTupletObj(tuplet.elements[i]))
-            } else {
-                elementsArray.push(getChordRestObj(tuplet.elements[i]))
-            }
-        }
-        elementsArray.sort(regularSort)
-        return elementsArray
-    }
-
     // Modified by futamapapa
     function addChordRestObj(cr, c) {
         var t = c.fraction
@@ -340,6 +343,7 @@
             parsedSelection.push(c.element)  // v0.1.3 (trial)
         } else {
             c.addNote(cr.notes[0].pitch)
+            console.log("CHECK---Addes Dummy Note")
             c.rewindToFraction(t)
             var n = c.element.notes[0]
             for (var i in cr.notes) {
@@ -357,9 +361,11 @@
                     removeElement(cr.notes[i].spannerBack[j])
                 }
                 c.element.add(cr.notes[i])
+                console.log("CHECK---Addes Note#" + i + " in CHORD")
                 parsedSelection.push(c.element.notes[i])  // v0.1.3 (trial)
             }
             removeElement(n)
+            console.log("CHECK---Removed Dummy Note")
             // If note newly crosses measure, we can't rely on duration set by cursor.
             if (!c.element.duration.equals(cr.duration)) {
                 c.element.duration = cr.duration
@@ -427,7 +433,7 @@
             c.addRest()
             c.rewindToFraction(t)
         }
-            */
+        */
         console.log("CHECK---lastSegment fraction = " + curScore.lastSegment.fraction.numerator + "/" + curScore.lastSegment.fraction.denominator)
         for (var i in tuplet.elements) {
             console.log("Element #" + i + " in tuplet is added to fraction " + t.numerator + "/" + t.denominator)
@@ -436,6 +442,7 @@
                 cmd("append-measure")
             }
             c.rewindToFraction(t)
+            console.log("CHECK---tuplet.Elements #" + i + " is type: " + tuplet.elements[i].type)
             if (tuplet.elements[i].type == Element.TUPLET) {
                 addTupletObj(tuplet.elements[i], c)
             } else {
@@ -560,6 +567,7 @@
 
     function readSelection() {
         if (!curScore.selection.elements.length) return false
+        console.log("CHECK---Number of elements in selection:" + curScore.selection.elements.length)
         if (curScore.selection.isRange) {
             return {
                 isRange: true,
@@ -572,6 +580,10 @@
         var selectObj = {
             isRange: false,
             elements: []
+        }
+        // v0.2.1 Currently, selecting a sigle tuplet mark could occur MS Crash
+        if (curScore.selection.elements.length == 1 && curScore.selection.elements[0].type == Element.TUPLET) {
+            throw new Error(qsTr("A single tuplet mark cannot be selected"))
         }
         for (var i in curScore.selection.elements) {
             selectObj.elements.push(curScore.selection.elements[i])
@@ -596,7 +608,9 @@
         }
         */
         for (var i in parsedSelection) {  // v0.1.3 (trial)
-            curScore.selection.select(parsedSelection[i], true)
-            console.log("element #" + i + "(" + curScore.selection.elements[i].userName() + ") at fraction " + curScore.selection.elements[i].fraction.numerator + "/" +  curScore.selection.elements[i].fraction.denominator + " on track" + curScore.selection.elements[i].track)
+            if (parsedSelection[i].staff) {
+                curScore.selection.select(parsedSelection[i], true)
+                console.log("element #" + i + "(" + curScore.selection.elements[i].userName() + ") at fraction " + curScore.selection.elements[i].fraction.numerator + "/" +  curScore.selection.elements[i].fraction.denominator + " on track" + curScore.selection.elements[i].track)
+            }
         }
     }
