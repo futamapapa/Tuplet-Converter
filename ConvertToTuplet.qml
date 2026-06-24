@@ -12,6 +12,7 @@
 //  v0.1.2: Prohibit moving CHORD SYMBOL (Element.HARMONY)
 //  v0.1.3: Prohibit braking selection after run with non-range selection
 //  v0.1.4: Add lyrics handler
+//  v0.1.5: Add hammer-on-pull-off handler
 //===========================================================================
 
 import QtQuick 2.0
@@ -21,11 +22,13 @@ import "TupletCommon.js" as TC
 MuseScore {
     title: qsTr("Convert to Tuplet")
     description: qsTr("Add a tuplet to a selection of notes and rests.")
-    version: "0.1.4"
+    version: "0.1.5"
     categoryCode: "composing-arranging-tools"
 
     property var selection: false
     property var allTies: []
+    property var allHopos: []
+    property var copiedChords: []
     property var parsedSelection: []  // v0.1.3 (trial)
     property var parsedElements: []
     property var readableElements: []
@@ -51,7 +54,10 @@ MuseScore {
             tupletDurationN *= 3
             tupletDurationD *= 4
         }
-        console.log("Candidate Tuplet of Ratio " + tupletRatioN + "/" + tupletRatioD + " in Duration " + tupletDurationN + "/" + tupletDurationD)
+        var tupletRatio = fraction(tupletRatioN, tupletRatioD)
+        var tupletDuration = fraction(tupletDurationN, tupletDurationD)
+
+        console.log("Candidate Tuplet of Ratio " + tupletRatio.numerator + "/" + tupletRatio.denominator + " in Duration " + tupletDuration.numerator + "/" + tupletDuration.denominator)
 
         /// Tuplet Rules
         if (tupletRatioN == 1 && Math.log2(tupletRatioD) == Math.floor(Math.log2(tupletRatioD))) {
@@ -73,8 +79,8 @@ MuseScore {
             if (!t[el.track]) {
                 console.log("CHECK---EMPTY, cursor to fraction:" + el.startTick.numerator + "/" + el.startTick.denominator)
                 cursor.rewindToFraction(el.startTick)
-                cursor.addTuplet(fraction(tupletRatioN, tupletRatioD), fraction(tupletDurationN, tupletDurationD))
-                console.log("add Tuplet of Ratio " + tupletRatioN + "/" + tupletRatioD + " in Duration 1/" + tupletDurationD)
+                cursor.addTuplet(tupletRatio, tupletDuration)
+                console.log("Add Tuplet of Ratio " + tupletRatio.numerator + "/" + tupletRatio.denominator + " in Duration " + tupletDuration.numerator + "/" + tupletDuration.denominator)
             } else {
                 console.log("CHECK---EXIST, cursor to fraction:" + t[el.track].numerator + "/" + t[el.track].denominator)
                 cursor.rewindToFraction(t[el.track])
@@ -89,6 +95,7 @@ MuseScore {
             console.log("CHECK---update t of track:" + el.track + " to " + t[el.track].numerator + "/" + t[el.track].denominator)
         }
         //TC.addTies(allTies)
+        TC.addSpans(allHopos, "hammer-on-pull-off")
     }
 
     onRun: {

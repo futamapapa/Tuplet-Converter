@@ -12,6 +12,7 @@
 //  v0.1.2: Prohibit moving CHORD SYMBOL (Element.HARMONY)
 //  v0.1.3: Prohibit braking selection after run with non-range selection
 //  v0.1.4: Add lyrics handler
+//  v0.1.5: Add hammer-on-pull-off handler
 //===========================================================================
 
     /* function retrogradeSort(a, b) {
@@ -30,13 +31,14 @@
     /// Written by futamapapa (came from retrogradeSelection)
     function parseSelection() {
         globalStartTick = curScore.lastMeasure.tick.plus(curScore.lastMeasure.ticks)
-        //readableElements = []
-        //parsedElements = []
         var readableDuration = fraction(0, 1)
         for (var i in curScore.selection.elements) {
             console.log("element #" + i + "(" + curScore.selection.elements[i].userName() + ") at fraction " + curScore.selection.elements[i].fraction.numerator + "/" +  curScore.selection.elements[i].fraction.denominator + " on track" + curScore.selection.elements[i].track)
             var el = getParsedElement(curScore.selection.elements[i], parsedElements)
             if (!el) {
+                continue
+            } else if (el.type == Element.HAMMER_ON_PULL_OFF_SEGMENT) {
+                getHopos(el)
                 continue
             }
 
@@ -106,6 +108,8 @@
                     }
                 }
                 return el
+            case Element.HAMMER_ON_PULL_OFF_SEGMENT:  // v0.1.5
+                return el
             default: return false
         }
     }
@@ -115,6 +119,7 @@
     function getChordRestObj(element) {
         getTies(element)
         return {
+            element: element,  // v0.1.5
             duration: element.duration,
             actualDuration: element.actualDuration,
             notes: getNotes(element),
@@ -124,7 +129,7 @@
             annotations: getAnnotations(element),
             articulations: getArticulations(element),
             graceNotes: getGraceNotes(element),
-            lyrics: getLyrics(element),
+            lyrics: getLyrics(element),  // v0.1.4
             beamMode: element.beamMode,
             offsetY: element.type == Element.REST ? element.offsetY : false,
             visible: element.type == Element.REST ? element.visible : false,
@@ -204,7 +209,7 @@
         return "invalid"
     }
 
-    // Written by futamapapa
+    // Written by futamapapa v0.1.4
     function getLyrics(element) {
         var lyricList = []
         var removeList = []
@@ -235,6 +240,18 @@
                 })
             }
         }
+    }
+
+  	// Written by futamapapa
+    function getHopos(element) {
+        var stEl = element.spanner.startElement
+        var edEl = element.spanner.endElement
+        console.log("CHECK---get spanner from: " + stEl.userName() + " at fraction " + stEl.fraction.numerator + "/" + stEl.fraction.denominator)
+        console.log("CHECK---get spanner   to: " + edEl.userName() + " at fraction " + edEl.fraction.numerator + "/" + edEl.fraction.denominator)
+        allHopos.push({
+            startElement: stEl,
+            endElement: edEl
+        })
     }
 
     // Creates a readable object from a tuplet
@@ -317,6 +334,10 @@
             if (!c.element.duration.equals(cr.duration)) {
                 c.element.duration = cr.duration
             }
+            copiedChords.push({  // v0.1.5
+                old: cr.element,
+                new: c.element
+            })
 
             c.rewindToFraction(t)
             addArticulations(c, cr.articulations)
@@ -325,7 +346,7 @@
         }
         c.element.beamMode = cr.beamMode
         addAnnotations(c, cr.annotations)
-        addLyrics(c, cr.lyrics)
+        addLyrics(c, cr.lyrics)  // v0.1.4
     }
 
 	// Modified by futamapapa
@@ -361,6 +382,7 @@
     }
 
 	// Written by futamapapa
+    // Remove outer-most tuplet
     function addInnerTupletObj(tuplet, c) {
         var t = c.fraction
         if (c.element) {
@@ -441,14 +463,37 @@
         for (var i in tieList) {
             c.track = tieList[i].track
             c.rewindToFraction(tieList[i].startTick) // Since we want the end position here, don't add actualDuration
-            console.log("addTies #1: corsor at fraction " + c.fraction.numerator + "/" + c.fraction.denominator)
+            console.log("addTies #1: cursor at fraction " + c.fraction.numerator + "/" + c.fraction.denominator)
             c.prev()
-            console.log("addTies #2: corsor at fraction " + c.fraction.numerator + "/" + c.fraction.denominator)
+            console.log("addTies #2: cursor at fraction " + c.fraction.numerator + "/" + c.fraction.denominator)
             if (!c.element || c.element.type == Element.REST || !c.element.notes[tieList[i].note]) {
                 return console.log("Unable to add tie, notes missing")
             }
             curScore.selection.select(c.element.notes[tieList[i].note], false)
             cmd("tie")
+        }
+    }
+
+	// Written by futamapapa
+    function addSpans(spanList, type) {
+        var c = curScore.newCursor()
+        for (var i in spanList) {
+            var stEl = spanList[i].startElement
+            var edEl = spanList[i].endElement
+            console.log("CHECK---span#" + i + ": start element " + stEl.userName())
+            console.log("CHECK---span#" + i + ": end   element " + edEl.userName())
+
+            for (var j in copiedChords) {
+                if (stEl.is(copiedChords[j].old)) {
+                    stEl = copiedChords[j].new
+                }
+                if (edEl.is(copiedChords[j].old)) {
+                    edEl = copiedChords[j].new
+                }
+            }
+            curScore.selection.select(stEl.notes[0], false)
+            curScore.selection.select(edEl.notes[0], true)
+            cmd(type)
         }
     }
 

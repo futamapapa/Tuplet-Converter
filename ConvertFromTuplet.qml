@@ -12,6 +12,7 @@
 //  v0.1.2: Prohibit moving CHORD SYMBOL (Element.HARMONY)
 //  v0.1.3: Prohibit braking selection after run with non-range selection
 //  v0.1.4: Add lyrics handler
+//  v0.1.5: Add hammer-on-pull-off handler
 //===========================================================================
 
 import QtQuick 2.0
@@ -21,11 +22,13 @@ import "TupletCommon.js" as TC
 MuseScore {
     title: qsTr("Convert from Tuplet")
     description: qsTr("Remove a tuplet which includes a selection of notes and rests.")
-    version: "0.1.4"
+    version: "0.1.5"
     categoryCode: "composing-arranging-tools"
 
     property var selection: false
     property var allTies: []
+    property var allHopos: []
+    property var copiedChords: []
     property var parsedSelection: []  // v0.1.3 (trial)
     property var parsedElements: []
     property var readableElements: []
@@ -40,7 +43,7 @@ MuseScore {
         TC.removeParsedElements()
 
         /// Convert from Tuplet
-        var t = [];
+        var t = []
         for (var i in readableElements) {
             var el = readableElements[i]
             console.log("CHECK---cursor to track:" + el.track)
@@ -62,6 +65,7 @@ MuseScore {
             console.log("CHECK---update t of track:" + el.track + " to " + t[el.track].numerator + "/" + t[el.track].denominator)
         }
         //TC.addTies(allTies)
+        TC.addSpans(allHopos, "hammer-on-pull-off")
     }
 
     onRun: {
@@ -76,6 +80,7 @@ MuseScore {
             if (readableElements.length > 0) removeTuplet()
             curScore.selection.clear()
             TC.writeSelection(selection)
+//            cmd("hammer-on-pull-off")
             curScore.endCmd()
         } catch (e) {
             // If we encounter an error, rollback all changes
