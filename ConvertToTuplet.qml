@@ -14,6 +14,10 @@
 //  v0.1.4: Add lyrics handler
 //  v0.1.5: Add hammer-on-pull-off handler
 //  v0.1.6: Add slur & standard-bend handler
+//  v0.1.7: selection modifier after run
+//  v0.1.8: Tweak error detection of overlapping measure boundaries
+//  v0.1.9: Add append-measure when over the last measure
+//  v0.2.0: Fix removing objects in voice2,3,4
 //===========================================================================
 
 import QtQuick 2.0
@@ -23,7 +27,7 @@ import "TupletCommon.js" as TC
 MuseScore {
     title: qsTr("Convert to Tuplet")
     description: qsTr("Add a tuplet to a selection of notes and rests.")
-    version: "0.1.6"
+    version: "0.2.0"
     categoryCode: "composing-arranging-tools"
 
     property var selection: false
@@ -73,20 +77,25 @@ MuseScore {
         TC.removeParsedElements()
 
         /// Convert to Tuplet
-        var t = [];
+        var t = []
+        var lastTick = 0  // v0.1.7
         for (var i in readableElements) {
             var el = readableElements[i]
             console.log("CHECK---cursor to track:" + el.track)
             cursor.track = el.track;
             if (!t[el.track]) {
-                console.log("CHECK---EMPTY, cursor to fraction:" + el.startTick.numerator + "/" + el.startTick.denominator)
-                cursor.rewindToFraction(el.startTick)
+                cursor.rewindToFraction(globalStartTick)
+                var tupletLast = globalStartTick.plus(tupletDuration);
+                var measureLast = cursor.measure.lastSegment.fraction;
+                if (tupletLast.greaterThan(measureLast)) {  // v0.1.8
+                    throw new Error(qsTr("Unable to add tuplet, possibly overlaps measure boundaries"))
+                }
                 cursor.addTuplet(tupletRatio, tupletDuration)
-                console.log("Add Tuplet of Ratio " + tupletRatio.numerator + "/" + tupletRatio.denominator + " in Duration " + tupletDuration.numerator + "/" + tupletDuration.denominator)
+                console.log("Track#" + el.track + ": Add Tuplet of Ratio " + tupletRatio.numerator + "/" + tupletRatio.denominator + " in Duration " + tupletDuration.numerator + "/" + tupletDuration.denominator + " at tick " + cursor.tick)
             } else {
-                console.log("CHECK---EXIST, cursor to fraction:" + t[el.track].numerator + "/" + t[el.track].denominator)
                 cursor.rewindToFraction(t[el.track])
             }
+
             if (el.type == Element.TUPLET) {
                 TC.addTupletObj(el, cursor)
             } else {
@@ -94,11 +103,14 @@ MuseScore {
             }
             cursor.next()
             t[el.track] = cursor.fraction
-            console.log("CHECK---update t of track:" + el.track + " to " + t[el.track].numerator + "/" + t[el.track].denominator)
+            if (cursor.tick > lastTick) {  // v0.1.7
+                lastTick = cursor.tick
+            }
         }
         //TC.addTies()
         TC.addBends()
         TC.addSpans()
+        return lastTick
     }
 
     onRun: {
@@ -110,7 +122,9 @@ MuseScore {
         try {
             selection = TC.readSelection()
             TC.parseSelection()
-            if (readableElements.length > 0) addTuplet()
+            if (readableElements.length > 0) {
+                selection.endSegment = addTuplet()  // v0.1.7
+            }
             curScore.selection.clear()
             TC.writeSelection(selection)
             curScore.endCmd()

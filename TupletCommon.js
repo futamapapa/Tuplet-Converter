@@ -14,6 +14,10 @@
 //  v0.1.4: Add lyrics handler
 //  v0.1.5: Add hammer-on-pull-off handler
 //  v0.1.6: Add slur & standard-bend handler
+//  v0.1.7: selection modifier after run
+//  v0.1.8: Tweak error detection of overlapping measure boundaries
+//  v0.1.9: Add append-measure when over the last measure
+//  v0.2.0: Fix removing objects in voice2,3,4
 //===========================================================================
 
     /// Written by futamapapa
@@ -33,6 +37,7 @@
             } 
                
             var durationObject = el.type == Element.TUPLET ? getTupletObj(el) : getChordRestObj(el)
+
             parsedElements.push(el)
             readableElements.push(durationObject)
             readableDuration = readableDuration.plus(durationObject.duration)
@@ -67,14 +72,19 @@
                 continue
             }
             const range = [parsedElements[i].track, parsedElements[i].fraction, parsedElements[i].actualDuration]
-            removeElement(parsedElements[i])
+            //removeElement(parsedElements[i])
             cursor.track = range[0]
             cursor.rewindToFraction(range[1])
+            removeElement(parsedElements[i])  // v0.2.0 We should not remove all elements before cursor.rewind (in voice2,3,4)
+            cursor.setDuration(range[2].numerator, range[2].denominator)
+            cursor.addRest()  // v0.2.0 We should leave a segment in voice2,3,4
+            /* v0.2.0 remove this
             if (cursor.element) {
                 do {
                     removeElement(cursor.element)
                 } while (cursor.next() && cursor.fraction.lessThan(range[1].plus(range[2])))
             }
+            */
         }
     }
 
@@ -274,6 +284,7 @@
     // Creates a readable object from a tuplet
     function getTupletObj(tuplet) {
         return {
+            element: tuplet,  // v0.1.6
             duration: tuplet.duration,
             actualDuration: tuplet.actualDuration,
             type: tuplet.type,
@@ -305,12 +316,14 @@
     // Modified by futamapapa
     function addChordRestObj(cr, c) {
         var t = c.fraction
+        /* v0.2.0 removed this
         if (c.element) {
             // Not necessarily invalid position, could be v2
             c.setDuration(c.element.duration.numerator, c.element.duration.denominator)
             c.addRest()
             c.rewindToFraction(t)
         }
+        */
         c.setDuration(cr.duration.numerator, cr.duration.denominator)
         if (cr.type == Element.REST) {
             c.addRest()
@@ -369,20 +382,24 @@
 	// Modified by futamapapa
     function addTupletObj(tuplet, c) {
         var t = c.fraction
+        /* v0.2.0 removed this
         if (c.element) {
             // Not necessarily invalid position, could be v2
             c.setDuration(c.element.duration.numerator, c.element.duration.denominator)
             c.addRest()
             c.rewindToFraction(t)
         }
-        c.addTuplet(tuplet.ratio, tuplet.duration)
-        c.rewindToFraction(t)
-        if (!c.element.tuplet) {
+        */
+        var tupletLast = t.plus(tuplet.duration);
+        var measureLast = c.measure.lastSegment.fraction;
+        if (tupletLast.greaterThan(measureLast)) {  // v0.1.8
             throw new Error(qsTr("Unable to add tuplet, possibly overlaps measure boundaries"))
         }
-        c.element.tuplet.bracketType = tuplet.bracketType
-        c.element.tuplet.numberType = tuplet.numberType
-        c.element.tuplet.visible = tuplet.visible
+        c.addTuplet(tuplet.ratio, tuplet.duration)
+        console.log("CHECK---after addTuplet--- " + c.element.userName() + " in fraction " + t.numerator + "/" + t.denominator)
+        c.element.bracketType = tuplet.bracketType
+        c.element.numberType = tuplet.numberType
+        c.element.visible = tuplet.visible
         for (var i in tuplet.elements) {
             c.rewindToFraction(t)  // Modified for TupletConverter
             if (tuplet.elements[i].type == Element.TUPLET) {
@@ -402,14 +419,22 @@
     // Remove outer-most tuplet
     function addInnerTupletObj(tuplet, c) {
         var t = c.fraction
+        console.log("CHECK---cursor fraction " + t.numerator + "/" + t.denominator)
+        /* v0.2.0 remove this
         if (c.element) {
             // Not necessarily invalid position, could be v2
             c.setDuration(c.element.duration.numerator, c.element.duration.denominator)
             c.addRest()
             c.rewindToFraction(t)
         }
+            */
+        console.log("CHECK---lastSegment fraction = " + curScore.lastSegment.fraction.numerator + "/" + curScore.lastSegment.fraction.denominator)
         for (var i in tuplet.elements) {
             console.log("Element #" + i + " in tuplet is added to fraction " + t.numerator + "/" + t.denominator)
+            if (!t.lessThan(curScore.lastSegment.fraction)) {  // v0.1.9
+                console.log("CHECK---Over the last tick of score")
+                cmd("append-measure")
+            }
             c.rewindToFraction(t)
             if (tuplet.elements[i].type == Element.TUPLET) {
                 addTupletObj(tuplet.elements[i], c)
@@ -479,7 +504,7 @@
         var c = curScore.newCursor()
         for (var i in allTies) {
             c.track = allTies[i].track
-            c.rewindToFraction(sllTies[i].startTick) // Since we want the end position here, don't add actualDuration
+            c.rewindToFraction(allTies[i].startTick) // Since we want the end position here, don't add actualDuration
             console.log("addTies #1: cursor at fraction " + c.fraction.numerator + "/" + c.fraction.denominator)
             c.prev()
             console.log("addTies #2: cursor at fraction " + c.fraction.numerator + "/" + c.fraction.denominator)
