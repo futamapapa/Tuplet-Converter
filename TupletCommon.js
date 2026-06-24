@@ -9,6 +9,9 @@
 //  as published by the Free Software Foundation and appearing in
 //  the file LICENSE
 //===========================================================================
+//  v0.1.2: Prohibit moving CHORD SYMBOL (Element.HARMONY)
+//  v0.1.3: Prohibit braking selection after run with non-range selection
+//===========================================================================
 
     function retrogradeSort(a, b) {
         return b.track == a.track ? b.startTick.ticks - a.startTick.ticks : b.track - a.track;
@@ -23,11 +26,11 @@
         return globalStartTick.plus(globalEndTick.minus(fraction))
     }
 
-    /// Modified by futamapapa
-    function retrogradeSelection() {
+    /// Written by futamapapa (came from retrogradeSelection)
+    function parseSelection() {
         globalStartTick = curScore.lastMeasure.tick.plus(curScore.lastMeasure.ticks)
-        readableElements = []
-        parsedElements = []
+        //readableElements = []
+        //parsedElements = []
         var readableDuration = fraction(0, 1)
         for (var i in curScore.selection.elements) {
             console.log("element #" + i + "(" + curScore.selection.elements[i].userName() + ") at fraction " + curScore.selection.elements[i].fraction.numerator + "/" +  curScore.selection.elements[i].fraction.denominator + " on track" + curScore.selection.elements[i].track)
@@ -62,7 +65,7 @@
         return
     }
 
-    /// Modified by futamapapa (from retrogradeSelection)
+    /// Written by futamapapa (came from retrogradeSelection)
     // Remove existing elements (as they may not be overwritten depending on the voice situation)
     function removeParsedElements() {
         var cursor = curScore.newCursor()
@@ -141,7 +144,8 @@
         var removeList = []
         for (var i in element.parent.annotations) {
             var el = element.parent.annotations[i]
-            if (el.track == element.track) {
+            // if (el.track == element.track) {
+            if (el.track == element.track && el.type != Element.HARMONY) {  // v0.1.2
                 annoList.push(el.clone())
                 removeList.push(el)
             }
@@ -201,7 +205,7 @@
         if (element.type == Element.REST) return
         for (var i in element.notes) {
             //if (element.notes[i].tieBack) {
-            if (element.notes[i].tieForward) {
+            if (element.notes[i].tieForward) {  // Modified for TupletConverter
                 allTies.push({
                     startTick: element.fraction,
                     track: element.track,
@@ -263,6 +267,7 @@
             c.element.offsetY = cr.offsetY
             c.element.visible = cr.visible
             c.element.gap = cr.gap
+            parsedSelection.push(c.element)  // v0.1.3 (trial)
         } else {
             c.addNote(cr.notes[0].pitch)
             c.rewindToFraction(t)
@@ -282,6 +287,7 @@
                     removeElement(cr.notes[i].spannerBack[j])
                 }
                 c.element.add(cr.notes[i])
+                parsedSelection.push(c.element.notes[i])  // v0.1.3 (trial)
             }
             removeElement(n)
             // If note newly crosses measure, we can't rely on duration set by cursor.
@@ -316,8 +322,7 @@
         c.element.tuplet.numberType = tuplet.numberType
         c.element.tuplet.visible = tuplet.visible
         for (var i in tuplet.elements) {
-//            c.rewindToFraction(retrogradedTick(tuplet.elements[i].startTick.plus(tuplet.elements[i].actualDuration)))
-            c.rewindToFraction(t)
+            c.rewindToFraction(t)  // Modified for TupletConverter
             if (tuplet.elements[i].type == Element.TUPLET) {
                 addTupletObj(tuplet.elements[i], c)
                 console.log("CHECK---add tupletObj in fraction " + t.numerator + "/" + t.denominator)
@@ -355,7 +360,8 @@
     function addAnnotations(cursor, annotations) {
         for (var i in cursor.segment.annotations) {
             var el = cursor.segment.annotations[i]
-            if (el.track == cursor.track) {
+            // if (el.track == cursor.track) {
+            if (el.track == cursor.track && el.type != Element.HARMONY) {  // v0.1.2
                 removeElement(el)
             }
         }
@@ -439,7 +445,13 @@
             )
             return
         }
+        /* v0.1.3 temporally remove this to prohibit breaking selection
         for (var i in selectObj.elements) {
             curScore.selection.select(selectObj.elements[i], true)
+        }
+        */
+        for (var i in parsedSelection) {  // v0.1.3 (trial)
+            curScore.selection.select(parsedSelection[i], true)
+            console.log("element #" + i + "(" + curScore.selection.elements[i].userName() + ") at fraction " + curScore.selection.elements[i].fraction.numerator + "/" +  curScore.selection.elements[i].fraction.denominator + " on track" + curScore.selection.elements[i].track)
         }
     }

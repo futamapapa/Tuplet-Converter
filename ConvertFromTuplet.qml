@@ -8,6 +8,10 @@
 //  as published by the Free Software Foundation and appearing in
 //  the file LICENSE
 //===========================================================================
+//  v0.1.1: Fixed running without selection
+//  v0.1.2: Prohibit moving CHORD SYMBOL (Element.HARMONY)
+//  v0.1.3: Prohibit braking selection after run with non-range selection
+//===========================================================================
 
 import QtQuick 2.0
 import MuseScore 3.0
@@ -16,11 +20,12 @@ import "TupletCommon.js" as TC
 MuseScore {
     title: qsTr("Convert from Tuplet")
     description: qsTr("Remove a tuplet which includes a selection of notes and rests.")
-    version: "0.1.0"
+    version: "0.1.2"
     categoryCode: "composing-arranging-tools"
 
     property var selection: false
     property var allTies: []
+    property var parsedSelection: []  // v0.1.3 (trial)
     property var parsedElements: []
     property var readableElements: []
     property var globalStartTick: fraction(0, 1)
@@ -59,12 +64,14 @@ MuseScore {
     }
 
     onRun: {
-        if (curScore.selection.elements.length) {
+        if (!curScore.selection.elements.length) {
+            quit()  // v0.1.1
+        } else {
             curScore.startCmd("Convert from tuplet")
         }
         try {
             selection = TC.readSelection()
-            TC.retrogradeSelection()
+            TC.parseSelection()
             if (readableElements.length > 0) removeTuplet()
             curScore.selection.clear()
             TC.writeSelection(selection)
@@ -72,7 +79,7 @@ MuseScore {
         } catch (e) {
             // If we encounter an error, rollback all changes
             curScore.endCmd(true)
-            curScore.startCmd("Retrograde: " + e.toString())
+            curScore.startCmd("Convert from tuplet: " + e.toString())
             var text = newElement(Element.STAFF_TEXT)
             text.text = e.toString()
             var c = curScore.newCursor()
