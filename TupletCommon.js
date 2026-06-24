@@ -11,20 +11,21 @@
 //===========================================================================
 //  v0.1.2: Prohibit moving CHORD SYMBOL (Element.HARMONY)
 //  v0.1.3: Prohibit braking selection after run with non-range selection
+//  v0.1.4: Add lyrics handler
 //===========================================================================
 
-    function retrogradeSort(a, b) {
+    /* function retrogradeSort(a, b) {
         return b.track == a.track ? b.startTick.ticks - a.startTick.ticks : b.track - a.track;
-    }
+    }*/
 
     /// Written by futamapapa
     function regularSort(a, b) {
         return a.track == b.track ? a.startTick.ticks - b.startTick.ticks : a.track - b.track;
     }
 
-    function retrogradedTick(fraction) {
+    /* function retrogradedTick(fraction) {
         return globalStartTick.plus(globalEndTick.minus(fraction))
-    }
+    }*/
 
     /// Written by futamapapa (came from retrogradeSelection)
     function parseSelection() {
@@ -34,7 +35,7 @@
         var readableDuration = fraction(0, 1)
         for (var i in curScore.selection.elements) {
             console.log("element #" + i + "(" + curScore.selection.elements[i].userName() + ") at fraction " + curScore.selection.elements[i].fraction.numerator + "/" +  curScore.selection.elements[i].fraction.denominator + " on track" + curScore.selection.elements[i].track)
-            var el = getRetrogradeElement(curScore.selection.elements[i], parsedElements)
+            var el = getParsedElement(curScore.selection.elements[i], parsedElements)
             if (!el) {
                 continue
             }
@@ -85,8 +86,9 @@
         }
     }
 
+    // Modified by futamapapa (rename from getParsedElement)
     // Find usable element (non-grace chord/rest or outermost tuplet)
-    function getRetrogradeElement(element, parsedElements) {
+    function getParsedElement(element, parsedElements) {
         var el = element
         switch (el.type) {
             case Element.NOTE:
@@ -108,6 +110,7 @@
         }
     }
 
+    // Modified by futamapapa
     // Creates a readable object from a chord/rest
     function getChordRestObj(element) {
         getTies(element)
@@ -121,6 +124,7 @@
             annotations: getAnnotations(element),
             articulations: getArticulations(element),
             graceNotes: getGraceNotes(element),
+            lyrics: getLyrics(element),
             beamMode: element.beamMode,
             offsetY: element.type == Element.REST ? element.offsetY : false,
             visible: element.type == Element.REST ? element.visible : false,
@@ -138,6 +142,7 @@
         return notes
     }
 
+    // Modified by fuamapapa
     // retrieves the annotations (dynamics, tempo text, etc) of a non-grace chord/rest
     function getAnnotations(element) {
         var annoList = []
@@ -199,6 +204,23 @@
         return "invalid"
     }
 
+    // Written by futamapapa
+    function getLyrics(element) {
+        var lyricList = []
+        var removeList = []
+        for (var i in element.lyrics) {
+            var el = element.lyrics[i]
+            if (el.track == element.track) {
+                lyricList.push(el.clone())
+                removeList.push(el)
+            }
+        }
+        for (var i in removeList) {
+            removeElement(removeList[i])
+        }
+        return lyricList
+    }
+
 	// Modified by futamapapa
     // Retrieves a list of notes with ties in a chordrest
     function getTies(element) {
@@ -246,6 +268,7 @@
         return elementsArray
     }
 
+    // Modified by futamapapa
     function addChordRestObj(cr, c) {
         var t = c.fraction
         if (c.element) {
@@ -302,6 +325,7 @@
         }
         c.element.beamMode = cr.beamMode
         addAnnotations(c, cr.annotations)
+        addLyrics(c, cr.lyrics)
     }
 
 	// Modified by futamapapa
@@ -357,6 +381,7 @@
         }
     }
 
+    // Modified by futamapapa
     function addAnnotations(cursor, annotations) {
         for (var i in cursor.segment.annotations) {
             var el = cursor.segment.annotations[i]
@@ -393,6 +418,20 @@
             }
             removeElement(toRemove)
             graceNotes[i].duration = graceList[i].duration
+        }
+    }
+
+    // Written by futamapapa
+    function addLyrics(cursor, lyrics) {
+        for (var i in cursor.segment.lyrics) {
+            var el = cursor.segment.lyrics[i]
+            if (el.track == cursor.track) {
+                removeElement(el)
+            }
+        }
+        for (var i in lyrics) {
+            var el = lyrics[i]
+            cursor.add(el)
         }
     }
 

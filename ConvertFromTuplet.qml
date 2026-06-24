@@ -8,9 +8,10 @@
 //  as published by the Free Software Foundation and appearing in
 //  the file LICENSE
 //===========================================================================
-//  v0.1.1: Fixed running without selection
+//  v0.1.1: Fix running without selection
 //  v0.1.2: Prohibit moving CHORD SYMBOL (Element.HARMONY)
 //  v0.1.3: Prohibit braking selection after run with non-range selection
+//  v0.1.4: Add lyrics handler
 //===========================================================================
 
 import QtQuick 2.0
@@ -20,7 +21,7 @@ import "TupletCommon.js" as TC
 MuseScore {
     title: qsTr("Convert from Tuplet")
     description: qsTr("Remove a tuplet which includes a selection of notes and rests.")
-    version: "0.1.2"
+    version: "0.1.4"
     categoryCode: "composing-arranging-tools"
 
     property var selection: false
