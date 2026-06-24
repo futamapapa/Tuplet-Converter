@@ -13,20 +13,13 @@
 //  v0.1.3: Prohibit braking selection after run with non-range selection
 //  v0.1.4: Add lyrics handler
 //  v0.1.5: Add hammer-on-pull-off handler
+//  v0.1.6: Add slur & standard-bend handler
 //===========================================================================
-
-    /* function retrogradeSort(a, b) {
-        return b.track == a.track ? b.startTick.ticks - a.startTick.ticks : b.track - a.track;
-    }*/
 
     /// Written by futamapapa
     function regularSort(a, b) {
         return a.track == b.track ? a.startTick.ticks - b.startTick.ticks : a.track - b.track;
     }
-
-    /* function retrogradedTick(fraction) {
-        return globalStartTick.plus(globalEndTick.minus(fraction))
-    }*/
 
     /// Written by futamapapa (came from retrogradeSelection)
     function parseSelection() {
@@ -37,16 +30,13 @@
             var el = getParsedElement(curScore.selection.elements[i], parsedElements)
             if (!el) {
                 continue
-            } else if (el.type == Element.HAMMER_ON_PULL_OFF_SEGMENT) {
-                getHopos(el)
-                continue
-            }
-
+            } 
+               
             var durationObject = el.type == Element.TUPLET ? getTupletObj(el) : getChordRestObj(el)
-            console.log("duration: " + durationObject.actualDuration.numerator + "/" + durationObject.actualDuration.denominator)
             parsedElements.push(el)
             readableElements.push(durationObject)
             readableDuration = readableDuration.plus(durationObject.duration)
+
             const objEndTick = durationObject.startTick.plus(durationObject.actualDuration)
             if (objEndTick.greaterThan(globalEndTick)) {
                 globalEndTick = objEndTick
@@ -108,8 +98,16 @@
                     }
                 }
                 return el
+
             case Element.HAMMER_ON_PULL_OFF_SEGMENT:  // v0.1.5
-                return el
+                getSpans(el, "hammer-on-pull-off")
+                return false
+            case Element.SLUR_SEGMENT:  // v0.1.6
+                getSpans(el, "add-slur")
+                return false
+            case Element.GUITAR_BEND:  // v0.1.6
+                getBends(el, "standard-bend")
+                return false
             default: return false
         }
     }
@@ -228,12 +226,13 @@
 
 	// Modified by futamapapa
     // Retrieves a list of notes with ties in a chordrest
-    function getTies(element) {
+    function getTies(element, cmd) {
         if (element.type == Element.REST) return
         for (var i in element.notes) {
             //if (element.notes[i].tieBack) {
             if (element.notes[i].tieForward) {  // Modified for TupletConverter
                 allTies.push({
+                    cmd: cmd,
                     startTick: element.fraction,
                     track: element.track,
                     note: i
@@ -242,13 +241,31 @@
         }
     }
 
+    // Written by futamapapa v0.1.6
+    function getBends(element, cmd) {
+        var stEl = element.parent
+        //var type = element.bendType
+        //console.log("CHECK---get bend " + type + " from: " + stEl.userName() + " of pitch " + stEl.pitch)
+        //console.log("CHECK---GuitarBendType standard-bend :" + GuitarBendType.BEND)
+        //console.log("CHECK---GuitarBendType slight-bend   :" + GuitarBendType.SLIGHT_BEND)
+        //if (type == GuitarBendType.BEND)            cmd = "standard-bend"
+        //if (type == GuitarBendType.PRE_BEND)        cmd = "pre-bend"
+        //if (type == GuitarBendType.GRACE_NOTE_BEND) cmd = "grace-note-bend"
+        //if (type == GuitarBendType.SLIGHT_BEND)     cmd = "slight-bend"
+        allBends.push({
+            cmd: cmd,
+            startElement: stEl
+        })
+    }
+
   	// Written by futamapapa
-    function getHopos(element) {
+    function getSpans(element, cmd) {
         var stEl = element.spanner.startElement
         var edEl = element.spanner.endElement
         console.log("CHECK---get spanner from: " + stEl.userName() + " at fraction " + stEl.fraction.numerator + "/" + stEl.fraction.denominator)
         console.log("CHECK---get spanner   to: " + edEl.userName() + " at fraction " + edEl.fraction.numerator + "/" + edEl.fraction.denominator)
-        allHopos.push({
+        allSpans.push({
+            cmd: cmd,
             startElement: stEl,
             endElement: edEl
         })
@@ -443,7 +460,7 @@
         }
     }
 
-    // Written by futamapapa
+    // Written by futamapapa v0.1.4
     function addLyrics(cursor, lyrics) {
         for (var i in cursor.segment.lyrics) {
             var el = cursor.segment.lyrics[i]
@@ -458,28 +475,47 @@
     }
 
 	// Modified by futamapapa
-    function addTies(tieList) {
+    function addTies() {
         var c = curScore.newCursor()
-        for (var i in tieList) {
-            c.track = tieList[i].track
-            c.rewindToFraction(tieList[i].startTick) // Since we want the end position here, don't add actualDuration
+        for (var i in allTies) {
+            c.track = allTies[i].track
+            c.rewindToFraction(sllTies[i].startTick) // Since we want the end position here, don't add actualDuration
             console.log("addTies #1: cursor at fraction " + c.fraction.numerator + "/" + c.fraction.denominator)
             c.prev()
             console.log("addTies #2: cursor at fraction " + c.fraction.numerator + "/" + c.fraction.denominator)
-            if (!c.element || c.element.type == Element.REST || !c.element.notes[tieList[i].note]) {
+            if (!c.element || c.element.type == Element.REST || !c.element.notes[allTies[i].note]) {
                 return console.log("Unable to add tie, notes missing")
             }
-            curScore.selection.select(c.element.notes[tieList[i].note], false)
-            cmd("tie")
+            curScore.selection.select(c.element.notes[allTies[i].note], false)
+            cmd(allTies[i].cmd)
         }
     }
 
-	// Written by futamapapa
-    function addSpans(spanList, type) {
+  	// Written by futamapapa v0.1.6
+    function addBends() {
         var c = curScore.newCursor()
-        for (var i in spanList) {
-            var stEl = spanList[i].startElement
-            var edEl = spanList[i].endElement
+        for (var i in allBends) {
+            var stEl = allBends[i].startElement
+            console.log("CHECK---bend#" + i + ": start element " + stEl.userName())
+
+            for (var j in copiedChords) {
+                for (var k in copiedChords[j].old.notes) {
+                    if (stEl.is(copiedChords[j].old.notes[k])) {
+                        stEl = copiedChords[j].new.notes[k]
+                    }
+                }
+            }
+            curScore.selection.select(stEl, false)
+            cmd(allBends[i].cmd)
+        }
+    }
+
+	// Written by futamapapa v0.1.5
+    function addSpans() {
+        var c = curScore.newCursor()
+        for (var i in allSpans) {
+            var stEl = allSpans[i].startElement
+            var edEl = allSpans[i].endElement
             console.log("CHECK---span#" + i + ": start element " + stEl.userName())
             console.log("CHECK---span#" + i + ": end   element " + edEl.userName())
 
@@ -493,7 +529,7 @@
             }
             curScore.selection.select(stEl.notes[0], false)
             curScore.selection.select(edEl.notes[0], true)
-            cmd(type)
+            cmd(allSpans[i].cmd)
         }
     }
 

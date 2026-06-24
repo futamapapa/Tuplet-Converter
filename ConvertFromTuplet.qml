@@ -13,6 +13,7 @@
 //  v0.1.3: Prohibit braking selection after run with non-range selection
 //  v0.1.4: Add lyrics handler
 //  v0.1.5: Add hammer-on-pull-off handler
+//  v0.1.6: Add slur & standard-bend handler
 //===========================================================================
 
 import QtQuick 2.0
@@ -22,12 +23,13 @@ import "TupletCommon.js" as TC
 MuseScore {
     title: qsTr("Convert from Tuplet")
     description: qsTr("Remove a tuplet which includes a selection of notes and rests.")
-    version: "0.1.5"
+    version: "0.1.6"
     categoryCode: "composing-arranging-tools"
 
     property var selection: false
     property var allTies: []
-    property var allHopos: []
+    property var allBends: []  // v0.1.6
+    property var allSpans: []  // v0.1.6
     property var copiedChords: []
     property var parsedSelection: []  // v0.1.3 (trial)
     property var parsedElements: []
@@ -64,8 +66,9 @@ MuseScore {
             t[el.track] = cursor.fraction
             console.log("CHECK---update t of track:" + el.track + " to " + t[el.track].numerator + "/" + t[el.track].denominator)
         }
-        //TC.addTies(allTies)
-        TC.addSpans(allHopos, "hammer-on-pull-off")
+        //TC.addTies()
+        TC.addBends()
+        TC.addSpans()
     }
 
     onRun: {
@@ -80,7 +83,6 @@ MuseScore {
             if (readableElements.length > 0) removeTuplet()
             curScore.selection.clear()
             TC.writeSelection(selection)
-//            cmd("hammer-on-pull-off")
             curScore.endCmd()
         } catch (e) {
             // If we encounter an error, rollback all changes
