@@ -19,6 +19,7 @@
 //  v0.1.9: Add append-measure when over the last measure
 //  v0.2.0: Fix removing objects in voice2,3,4
 //  v0.2.1: Avoid crash when a single tuplet mark is selected
+//  v0.2.2: Fix the algorithm for determining tuplet ratio with mixed note values
 //===========================================================================
 
 import QtQuick 2.0
@@ -39,6 +40,7 @@ MuseScore {
     property var parsedSelection: []  // v0.1.3 (trial)
     property var parsedElements: []
     property var readableElements: []
+    property var readableDuration: fraction(0, 1)
     property var globalStartTick: fraction(0, 1)
     property var globalEndTick: fraction(0, 1)
     property var globalDuration: fraction(0, 1)

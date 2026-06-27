@@ -19,6 +19,7 @@
 //  v0.1.9: Add append-measure when over the last measure
 //  v0.2.0: Fix removing objects in voice2,3,4
 //  v0.2.1: Avoid crash when a single tuplet mark is selected
+//  v0.2.2: Fix the algorithm for determining tuplet ratio with mixed note values
 //===========================================================================
 
     /// Written by futamapapa
@@ -29,7 +30,7 @@
     /// Written by futamapapa (came from retrogradeSelection)
     function parseSelection() {
         globalStartTick = curScore.lastMeasure.tick.plus(curScore.lastMeasure.ticks)
-        var readableDuration = fraction(0, 1)
+        readableDuration = fraction(0, 1)
         for (var i in curScore.selection.elements) {
             console.log("element #" + i + "(" + curScore.selection.elements[i].userName() + ") at fraction " + curScore.selection.elements[i].fraction.numerator + "/" +  curScore.selection.elements[i].fraction.denominator + " on track" + curScore.selection.elements[i].track)
             var el = getParsedElement(curScore.selection.elements[i], parsedElements)
