@@ -20,6 +20,7 @@
 //  v0.2.0: Fix removing objects in voice2,3,4
 //  v0.2.1: Avoid crash when a single tuplet mark is selected
 //  v0.2.2: Fix the algorithm for determining tuplet ratio with mixed note values
+//  v0.2.3: Fix actual duration calculation when processing multiple tracks
 //===========================================================================
 
 import QtQuick 2.0

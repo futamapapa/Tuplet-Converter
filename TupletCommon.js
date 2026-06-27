@@ -20,19 +20,34 @@
 //  v0.2.0: Fix removing objects in voice2,3,4
 //  v0.2.1: Avoid crash when a single tuplet mark is selected
 //  v0.2.2: Fix the algorithm for determining tuplet ratio with mixed note values
+//  v0.2.3: Fix actual duration calculation when processing multiple tracks
 //===========================================================================
+
+    var trackReadableDuration = {}
 
     /// Written by futamapapa
     function regularSort(a, b) {
         return a.track == b.track ? a.startTick.ticks - b.startTick.ticks : a.track - b.track;
     }
 
+    function setReadableDuration(track, duration) {
+        trackReadableDuration[track] = duration
+    }
+
+    function getReadableDuration(track) {
+        if (!(track in trackReadableDuration))
+            trackReadableDuration[track] = fraction(0, 1)
+        return trackReadableDuration[track]
+    }
+
     /// Written by futamapapa (came from retrogradeSelection)
     function parseSelection() {
         globalStartTick = curScore.lastMeasure.tick.plus(curScore.lastMeasure.ticks)
         readableDuration = fraction(0, 1)
+        trackReadableDuration = {}
         for (var i in curScore.selection.elements) {
-            console.log("element #" + i + "(" + curScore.selection.elements[i].userName() + ") at fraction " + curScore.selection.elements[i].fraction.numerator + "/" +  curScore.selection.elements[i].fraction.denominator + " on track" + curScore.selection.elements[i].track)
+            var track = curScore.selection.elements[i].track
+            console.log("element #" + i + "(" + curScore.selection.elements[i].userName() + ") at fraction " + curScore.selection.elements[i].fraction.numerator + "/" +  curScore.selection.elements[i].fraction.denominator + " on track" + track)
             var el = getParsedElement(curScore.selection.elements[i], parsedElements)
             if (!el) {
                 continue
@@ -42,7 +57,6 @@
 
             parsedElements.push(el)
             readableElements.push(durationObject)
-            readableDuration = readableDuration.plus(durationObject.duration)
 
             const objEndTick = durationObject.startTick.plus(durationObject.actualDuration)
             if (objEndTick.greaterThan(globalEndTick)) {
@@ -51,15 +65,31 @@
             if (durationObject.startTick.lessThan(globalStartTick)) {
                 globalStartTick = durationObject.startTick
             }
+            
+            setReadableDuration(track, getReadableDuration(track).plus(durationObject.duration))  // v0.2.3 for multi track
         }
         globalDuration = globalEndTick.minus(globalStartTick)
         console.log("globalStartTick: " + globalStartTick.numerator + "/" + globalStartTick.denominator + ", globalEndTick: " + globalEndTick.numerator + "/" + globalEndTick.denominator)
         console.log("globalDuration: " + globalDuration.numerator + "/" + globalDuration.denominator)
+
+        // v0.2.3 multi track check
+        var first = null
+        for (var t in trackReadableDuration) {
+            var value = trackReadableDuration[t]
+            if (first === null) {
+                first = value
+            } else if (!value.equals(first)) {
+                console.log("Track-Inconsistency Error")
+                return
+            }
+        }
+        readableDuration = first
         console.log("readableDuration: " + readableDuration.numerator + "/" + readableDuration.denominator)
+
         // Check Consectiveness
         if (readableDuration.lessThan(globalDuration)) {
             console.log("Consectiveness Error")
-            return [];
+            return
         }
         readableElements.sort(regularSort)
         return
