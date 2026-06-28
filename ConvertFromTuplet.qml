@@ -23,6 +23,7 @@
 //  v0.2.3: Fix actual duration calculation when processing multiple tracks
 //  v0.2.4: Preserve the current selection if the operation cannot be performed
 //  v0.2.5: Clean up license headers
+//  v0.2.6: Skip processing instead of reporting an error for crossing barlines
 //===========================================================================
 
 import QtQuick 2.0
@@ -32,7 +33,7 @@ import "TupletCommon.js" as TC
 MuseScore {
     title: qsTr("Convert from Tuplet")
     description: qsTr("Remove a tuplet which includes a selection of notes and rests.")
-    version: "0.2.1"
+    version: "0.2.6"
     categoryCode: "composing-arranging-tools"
 
     property var allTies: []

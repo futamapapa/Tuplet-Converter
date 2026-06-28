@@ -23,6 +23,7 @@
 //  v0.2.3: Fix actual duration calculation when processing multiple tracks
 //  v0.2.4: Preserve the current selection if the operation cannot be performed
 //  v0.2.5: Clean up license headers
+//  v0.2.6: Skip processing instead of reporting an error for crossing barlines
 //===========================================================================
 
 import QtQuick 2.0
@@ -32,7 +33,7 @@ import "TupletCommon.js" as TC
 MuseScore {
     title: qsTr("Convert to Tuplet")
     description: qsTr("Add a tuplet to a selection of notes and rests.")
-    version: "0.2.1"
+    version: "0.2.6"
     categoryCode: "composing-arranging-tools"
 
     property var allTies: []
@@ -88,6 +89,15 @@ MuseScore {
             return false
         }
 
+        // v0.2.6 moved to here
+        var tupletLast = globalStartTick.plus(tupletDuration);
+        var measureLast = cursor.measure.lastSegment.fraction;
+        if (tupletLast.greaterThan(measureLast)) {  // v0.1.8
+            //throw new Error(qsTr("Unable to add tuplet, possibly overlaps measure boundaries"))
+            console.log("Unable to add tuplet, possibly overlaps measure boundaries")
+            return false
+        }
+
         curScore.selection.clear()  // v0.2.1 We should clear selection before removing elements  // v0.2.4 moved to here
         TC.removeParsedElements()
 
@@ -100,11 +110,6 @@ MuseScore {
             cursor.track = el.track;
             if (!t[el.track]) {
                 cursor.rewindToFraction(globalStartTick)
-                var tupletLast = globalStartTick.plus(tupletDuration);
-                var measureLast = cursor.measure.lastSegment.fraction;
-                if (tupletLast.greaterThan(measureLast)) {  // v0.1.8
-                    throw new Error(qsTr("Unable to add tuplet, possibly overlaps measure boundaries"))
-                }
                 cursor.addTuplet(tupletRatio, tupletDuration)
                 console.log("Track#" + el.track + ": Add Tuplet of Ratio " + tupletRatio.numerator + "/" + tupletRatio.denominator + " in Duration " + tupletDuration.numerator + "/" + tupletDuration.denominator + " at tick " + cursor.tick)
             } else {

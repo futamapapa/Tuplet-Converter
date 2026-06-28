@@ -27,6 +27,7 @@
 //  v0.2.3: Fix actual duration calculation when processing multiple tracks
 //  v0.2.4: Preserve the current selection if the operation cannot be performed
 //  v0.2.5: Clean up license headers
+//  v0.2.6: Skip processing instead of reporting an error for crossing barlines
 //===========================================================================
 
     var trackReadableDuration = {}
