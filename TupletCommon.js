@@ -1,13 +1,17 @@
 //===========================================================================
-// Tuplet Conversion Common Functions (based on new-retrograde plugin)
+// Tuplet Conversion Common Functions
 //
-// Copyright (C) 2025 futamapapa
-// Copyright (C) 2025 XiaoMigros
+//  Derived from the new-retrograde plugin.
+//    Original work:
+//    Copyright (C) 2025 XiaoMigros
+//
+//  Modified and adapted for use in ConvertFromTuplet/ConvertToTuplet plugins.
+//    Copyright (C) 2025 futamapapa
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License version 3
 //  as published by the Free Software Foundation and appearing in
-//  the file LICENSE
+//  the file LICENSE.
 //===========================================================================
 //  v0.1.2: Prohibit moving CHORD SYMBOL (Element.HARMONY)
 //  v0.1.3: Prohibit braking selection after run with non-range selection
@@ -22,11 +26,11 @@
 //  v0.2.2: Fix the algorithm for determining tuplet ratio with mixed note values
 //  v0.2.3: Fix actual duration calculation when processing multiple tracks
 //  v0.2.4: Preserve the current selection if the operation cannot be performed
+//  v0.2.5: Clean up license headers
 //===========================================================================
 
     var trackReadableDuration = {}
 
-    /// Written by futamapapa
     function regularSort(a, b) {
         return a.track == b.track ? a.startTick.ticks - b.startTick.ticks : a.track - b.track;
     }
@@ -41,7 +45,6 @@
         return trackReadableDuration[track]
     }
 
-    /// Written by futamapapa (came from retrogradeSelection)
     function parseSelection() {
         globalStartTick = curScore.lastMeasure.tick.plus(curScore.lastMeasure.ticks)
         readableDuration = fraction(0, 1)
@@ -96,7 +99,6 @@
         return true
     }
 
-    /// Written by futamapapa (came from retrogradeSelection)
     // Remove existing elements (as they may not be overwritten depending on the voice situation)
     function removeParsedElements() {
         var cursor = curScore.newCursor()
@@ -123,7 +125,6 @@
         }
     }
 
-    // Modified by futamapapa (rename from getParsedElement)
     // Find usable element (non-grace chord/rest or outermost tuplet)
     function getParsedElement(element, parsedElements) {
         var el = element
@@ -174,7 +175,6 @@
         }
     }
 
-    // Modified by futamapapa
     // Returns the chords, rests and child tuplets within a tuplet
     function getTupletElements(tuplet) {
         var elementsArray = []
@@ -189,7 +189,6 @@
         return elementsArray
     }
 
-    // Modified by futamapapa
     // Creates a readable object from a chord/rest
     function getChordRestObj(element) {
         getTies(element)
@@ -222,7 +221,6 @@
         return notes
     }
 
-    // Modified by fuamapapa
     // retrieves the annotations (dynamics, tempo text, etc) of a non-grace chord/rest
     function getAnnotations(element) {
         var annoList = []
@@ -284,7 +282,6 @@
         return "invalid"
     }
 
-    // Written by futamapapa v0.1.4
     function getLyrics(element) {
         var lyricList = []
         var removeList = []
@@ -301,7 +298,6 @@
         return lyricList
     }
 
-	// Modified by futamapapa
     // Retrieves a list of notes with ties in a chordrest
     function getTies(element, cmd) {
         if (element.type == Element.REST) return
@@ -318,7 +314,7 @@
         }
     }
 
-    // Written by futamapapa v0.1.6
+    // v0.1.6
     function getBends(element, cmd) {
         var stEl = element.parent
         //var type = element.bendType
@@ -335,7 +331,6 @@
         })
     }
 
-  	// Written by futamapapa
     function getSpans(element, cmd) {
         var stEl = element.spanner.startElement
         var edEl = element.spanner.endElement
@@ -348,7 +343,6 @@
         })
     }
 
-    // Modified by futamapapa
     function addChordRestObj(cr, c) {
         var t = c.fraction
         /* v0.2.0 removed this
@@ -417,7 +411,6 @@
         addLyrics(c, cr.lyrics)  // v0.1.4
     }
 
-	// Modified by futamapapa
     function addTupletObj(tuplet, c) {
         var t = c.fraction
         /* v0.2.0 removed this
@@ -453,7 +446,6 @@
         }
     }
 
-	// Written by futamapapa
     // Remove outer-most tuplet
     function addInnerTupletObj(tuplet, c) {
         var t = c.fraction
@@ -484,7 +476,6 @@
         }
     }
 
-    // Modified by futamapapa
     function addAnnotations(cursor, annotations) {
         for (var i in cursor.segment.annotations) {
             var el = cursor.segment.annotations[i]
@@ -524,7 +515,7 @@
         }
     }
 
-    // Written by futamapapa v0.1.4
+    // v0.1.4
     function addLyrics(cursor, lyrics) {
         for (var i in cursor.segment.lyrics) {
             var el = cursor.segment.lyrics[i]
@@ -538,7 +529,6 @@
         }
     }
 
-	// Modified by futamapapa
     function addTies() {
         var c = curScore.newCursor()
         for (var i in allTies) {
@@ -555,7 +545,7 @@
         }
     }
 
-  	// Written by futamapapa v0.1.6
+  	// v0.1.6
     function addBends() {
         var c = curScore.newCursor()
         for (var i in allBends) {
@@ -574,7 +564,7 @@
         }
     }
 
-	// Written by futamapapa v0.1.5
+	// v0.1.5
     function addSpans() {
         var c = curScore.newCursor()
         for (var i in allSpans) {

@@ -6,7 +6,7 @@
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License version 3
 //  as published by the Free Software Foundation and appearing in
-//  the file LICENSE
+//  the file LICENSE.
 //===========================================================================
 //  v0.1.1: Fix running without selection
 //  v0.1.2: Prohibit moving CHORD SYMBOL (Element.HARMONY)
@@ -22,6 +22,7 @@
 //  v0.2.2: Fix the algorithm for determining tuplet ratio with mixed note values
 //  v0.2.3: Fix actual duration calculation when processing multiple tracks
 //  v0.2.4: Preserve the current selection if the operation cannot be performed
+//  v0.2.5: Clean up license headers
 //===========================================================================
 
 import QtQuick 2.0
