@@ -21,6 +21,7 @@
 //  v0.2.1: Avoid crash when a single tuplet mark is selected
 //  v0.2.2: Fix the algorithm for determining tuplet ratio with mixed note values
 //  v0.2.3: Fix actual duration calculation when processing multiple tracks
+//  v0.2.4: Preserve the current selection if the operation cannot be performed
 //===========================================================================
 
     var trackReadableDuration = {}
@@ -80,7 +81,7 @@
                 first = value
             } else if (!value.equals(first)) {
                 console.log("Track-Inconsistency Error")
-                return
+                return false
             }
         }
         readableDuration = first
@@ -89,10 +90,10 @@
         // Check Consectiveness
         if (readableDuration.lessThan(globalDuration)) {
             console.log("Consectiveness Error")
-            return
+            return false
         }
         readableElements.sort(regularSort)
-        return
+        return true
     }
 
     /// Written by futamapapa (came from retrogradeSelection)
@@ -614,7 +615,9 @@
         }
         // v0.2.1 Currently, selecting a sigle tuplet mark could occur MS Crash
         if (curScore.selection.elements.length == 1 && curScore.selection.elements[0].type == Element.TUPLET) {
-            throw new Error(qsTr("A single tuplet mark cannot be selected"))
+            //throw new Error(qsTr("A single tuplet mark cannot be selected"))
+            console.log("A single tuplet mark cannot be selected.")
+            return false
         }
         for (var i in curScore.selection.elements) {
             selectObj.elements.push(curScore.selection.elements[i])

@@ -21,6 +21,7 @@
 //  v0.2.1: Avoid crash when a single tuplet mark is selected
 //  v0.2.2: Fix the algorithm for determining tuplet ratio with mixed note values
 //  v0.2.3: Fix actual duration calculation when processing multiple tracks
+//  v0.2.4: Preserve the current selection if the operation cannot be performed
 //===========================================================================
 
 import QtQuick 2.0
@@ -33,7 +34,6 @@ MuseScore {
     version: "0.2.1"
     categoryCode: "composing-arranging-tools"
 
-    property var selection: false
     property var allTies: []
     property var allBends: []
     property var allSpans: []
@@ -57,7 +57,7 @@ MuseScore {
         // v0.2.2 Algorithm fixed 
         if (readableDuration.equals(fraction(0,1))) {
             console.log("readableDuration is unavailable.")
-            return
+            return false
         } 
         while (tupletRatioD < readableDuration.denominator) {
             tupletRatioN *= 2
@@ -81,12 +81,13 @@ MuseScore {
         /// Tuplet Rules
         if (tupletRatioN == 1 && Math.log2(tupletRatioD) == Math.floor(Math.log2(tupletRatioD))) {
             console.log("Tuplet Rule Violation #1: replacable to normal duration")
-            return
+            return false
         } else if (Math.log2(tupletRatioN) == Math.floor(Math.log2(tupletRatioN)) && timeSigD != 8) {
             console.log("Tuplet Rule Violation #2: duplet in non-complex time signature")
-            return
+            return false
         }
 
+        curScore.selection.clear()  // v0.2.1 We should clear selection before removing elements  // v0.2.4 moved to here
         TC.removeParsedElements()
 
         /// Convert to Tuplet
@@ -129,19 +130,20 @@ MuseScore {
     onRun: {
         if (!curScore.selection.elements.length) {
             quit()  // v.0.1.1
-        } else {
-            curScore.startCmd("Convert to tuplet")
         }
         try {
-            selection = TC.readSelection()
-            TC.parseSelection()
-            curScore.selection.clear()  // v0.2.1 We should clear selection before removing elements
-            if (readableElements.length > 0) {
-                selection.endSegment = addTuplet()  // v0.1.7
+            var selection = TC.readSelection()
+            if (selection) {
+                var parse = TC.parseSelection()
+                if (parse && readableElements.length > 0) {
+                    curScore.startCmd("Convert to tuplet")  // v0.2.4 moved to here
+                    selection.endSegment = addTuplet()  // v0.1.7
+                    if (selection.endSegment) {
+                        TC.writeSelection(selection)
+                    }   
+                    curScore.endCmd()  // v0.2.4 moved to here
+                }
             }
-            //curScore.selection.clear()
-            TC.writeSelection(selection)
-            curScore.endCmd()
         } catch (e) {
             // If we encounter an error, rollback all changes
             curScore.endCmd(true)

@@ -21,6 +21,7 @@
 //  v0.2.1: Avoid crash when a single tuplet mark is selected
 //  v0.2.2: Fix the algorithm for determining tuplet ratio with mixed note values
 //  v0.2.3: Fix actual duration calculation when processing multiple tracks
+//  v0.2.4: Preserve the current selection if the operation cannot be performed
 //===========================================================================
 
 import QtQuick 2.0
@@ -33,7 +34,6 @@ MuseScore {
     version: "0.2.1"
     categoryCode: "composing-arranging-tools"
 
-    property var selection: false
     property var allTies: []
     property var allBends: []  // v0.1.6
     property var allSpans: []  // v0.1.6
@@ -50,6 +50,7 @@ MuseScore {
         var cursor = curScore.newCursor()
         cursor.rewindToFraction(globalStartTick)
 
+        curScore.selection.clear()  // v0.2.1 We should clear selection before removing elements  // v0.2.4 moved to here
         TC.removeParsedElements()
 
         /// Convert from Tuplet
@@ -88,19 +89,20 @@ MuseScore {
     onRun: {
         if (!curScore.selection.elements.length) {
             quit()  // v0.1.1
-        } else {
-            curScore.startCmd("Convert from tuplet")
         }
         try {
-            selection = TC.readSelection()
-            TC.parseSelection()
-            curScore.selection.clear()  // v0.2.1 We should clear selection before removing elements
-            if (readableElements.length > 0) {
-                selection.endSegment = removeTuplet()  // v0.1.7
+            var selection = TC.readSelection()
+            if (selection) {
+                var parse = TC.parseSelection()
+                if (parse && readableElements.length > 0) {
+                    curScore.startCmd("Convert from tuplet")  // v0.2.4 moved to here
+                    selection.endSegment = removeTuplet()  // v0.1.7
+                    if (selection.endSegment) {
+                        TC.writeSelection(selection)
+                    }
+                    curScore.endCmd()  // v0.2.4 moved to here
+                }
             }
-            //curScore.selection.clear()
-            TC.writeSelection(selection)
-            curScore.endCmd()
         } catch (e) {
             // If we encounter an error, rollback all changes
             curScore.endCmd(true)
