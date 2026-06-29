@@ -24,6 +24,7 @@
 //  v0.2.4: Preserve the current selection if the operation cannot be performed
 //  v0.2.5: Clean up license headers
 //  v0.2.6: Skip processing instead of reporting an error for crossing barlines
+//  v0.2.7: Refactor to improve readability
 //===========================================================================
 
 import QtQuick 2.0
@@ -33,33 +34,25 @@ import "TupletCommon.js" as TC
 MuseScore {
     title: qsTr("Convert from Tuplet")
     description: qsTr("Remove a tuplet which includes a selection of notes and rests.")
-    version: "0.2.6"
+    version: "0.2.7"
     categoryCode: "composing-arranging-tools"
 
-    property var allTies: []
-    property var allBends: []  // v0.1.6
-    property var allSpans: []  // v0.1.6
-    property var copiedChords: []
     property var parsedSelection: []  // v0.1.3 (trial)
     property var parsedElements: []
     property var readableElements: []
-    property var readableDuration: fraction(0, 1)
-    property var globalStartTick: fraction(0, 1)
-    property var globalEndTick: fraction(0, 1)
-    property var globalDuration: fraction(0, 1)
 
-    function removeTuplet() {
-        var cursor = curScore.newCursor()
-        cursor.rewindToFraction(globalStartTick)
+    function removeTuplet(parsedTime) {
+        const cursor = curScore.newCursor()
+        cursor.rewindToFraction(parsedTime.globalStartTick)
 
         curScore.selection.clear()  // v0.2.1 We should clear selection before removing elements  // v0.2.4 moved to here
         TC.removeParsedElements()
 
         /// Convert from Tuplet
-        var t = []
-        var lastTick = 0  // v0.1.7
-        for (var i in readableElements) {
-            var el = readableElements[i]
+        const t = []
+        let lastTick = 0  // v0.1.7
+        for (let i in readableElements) {
+            const el = readableElements[i]
             cursor.track = el.track;
             console.log("CHECK---cursor in track:" + cursor.track)
             if (!t[el.track]) {
@@ -92,13 +85,14 @@ MuseScore {
         if (!curScore.selection.elements.length) {
             quit()  // v0.1.1
         }
+        let parsedTime = null
         try {
-            var selection = TC.readSelection()
+            const selection = TC.readSelection()
             if (selection) {
-                var parse = TC.parseSelection()
-                if (parse && readableElements.length > 0) {
+                parsedTime = TC.parseSelection()
+                if (parsedTime.ok && readableElements.length > 0) {
                     curScore.startCmd("Convert from tuplet")  // v0.2.4 moved to here
-                    selection.endSegment = removeTuplet()  // v0.1.7
+                    selection.endSegment = removeTuplet(parsedTime)  // v0.1.7
                     if (selection.endSegment) {
                         TC.writeSelection(selection)
                     }
@@ -109,11 +103,11 @@ MuseScore {
             // If we encounter an error, rollback all changes
             curScore.endCmd(true)
             curScore.startCmd("Convert from tuplet: " + e.toString())
-            var text = newElement(Element.STAFF_TEXT)
+            const text = newElement(Element.STAFF_TEXT)
             text.text = e.toString()
-            var c = curScore.newCursor()
+            const c = curScore.newCursor()
             c.track = 0
-            c.rewindToFraction(globalStartTick)
+            c.rewindToFraction(parsedTime? parsedTime.globalStartTick : fraction(0, 1))
             c.add(text)
             curScore.endCmd()
         }

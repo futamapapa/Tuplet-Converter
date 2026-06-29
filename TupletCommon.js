@@ -28,9 +28,14 @@
 //  v0.2.4: Preserve the current selection if the operation cannot be performed
 //  v0.2.5: Clean up license headers
 //  v0.2.6: Skip processing instead of reporting an error for crossing barlines
+//  v0.2.7: Refactor to improve readability
 //===========================================================================
 
-    var trackReadableDuration = {}
+    let allTies = []
+    let allBends = []
+    let allSpans = []
+    let copiedChords = []
+    let trackReadableDuration = {}
 
     function regularSort(a, b) {
         return a.track == b.track ? a.startTick.ticks - b.startTick.ticks : a.track - b.track;
@@ -47,18 +52,32 @@
     }
 
     function parseSelection() {
-        globalStartTick = curScore.lastMeasure.tick.plus(curScore.lastMeasure.ticks)
-        readableDuration = fraction(0, 1)
+        // property var defined in QML files
+        parsedSelection = []
+        parsedElements = []
+        readableElements = []
+
+        // global variables
+        allTies = []
+        allBends = []
+        allSpans = []
+        copiedChords = []
         trackReadableDuration = {}
-        for (var i in curScore.selection.elements) {
-            var track = curScore.selection.elements[i].track
+
+        let globalStartTick = curScore.lastMeasure.tick.plus(curScore.lastMeasure.ticks)
+        let globalEndTick = fraction(0, 1)
+        let globalDuration = fraction(0, 1)
+        let readableDuration = fraction(0, 1)
+   
+        for (let i in curScore.selection.elements) {
+            const track = curScore.selection.elements[i].track
             console.log("element #" + i + "(" + curScore.selection.elements[i].userName() + ") at fraction " + curScore.selection.elements[i].fraction.numerator + "/" +  curScore.selection.elements[i].fraction.denominator + " on track" + track)
-            var el = getParsedElement(curScore.selection.elements[i], parsedElements)
+            const el = getParsedElement(curScore.selection.elements[i], parsedElements)
             if (!el) {
                 continue
             } 
                
-            var durationObject = el.type == Element.TUPLET ? getTupletObj(el) : getChordRestObj(el)
+            const durationObject = el.type == Element.TUPLET ? getTupletObj(el) : getChordRestObj(el)
 
             parsedElements.push(el)
             readableElements.push(durationObject)
@@ -78,14 +97,14 @@
         console.log("globalDuration: " + globalDuration.numerator + "/" + globalDuration.denominator)
 
         // v0.2.3 multi track check
-        var first = null
-        for (var t in trackReadableDuration) {
-            var value = trackReadableDuration[t]
+        let first = null
+        for (let t in trackReadableDuration) {
+            const value = trackReadableDuration[t]
             if (first === null) {
                 first = value
             } else if (!value.equals(first)) {
                 console.log("Track-Inconsistency Error")
-                return false
+                return {ok: false, globalStartTick: globalStartTick}
             }
         }
         readableDuration = first
@@ -94,16 +113,22 @@
         // Check Consectiveness
         if (readableDuration.lessThan(globalDuration)) {
             console.log("Consectiveness Error")
-            return false
+            return {ok: false, globalStartTick: globalStartTick}
         }
         readableElements.sort(regularSort)
-        return true
+        return {
+            ok: true,
+            globalStartTick: globalStartTick,
+            globalEndTick: globalEndTick,
+            globalDuration: globalDuration,
+            readableDuration: readableDuration
+        }
     }
 
     // Remove existing elements (as they may not be overwritten depending on the voice situation)
     function removeParsedElements() {
-        var cursor = curScore.newCursor()
-        for (var i in parsedElements) {
+        const cursor = curScore.newCursor()
+        for (let i in parsedElements) {
             if (!parsedElements[i]) {
                 continue
             }
@@ -121,14 +146,14 @@
             }
             */
         }
-        for (var i in parsedElements) {
+        for (let i in parsedElements) {
             console.log("CHECK---remaining parsedElement #" + i + ": " + parsedElements[i].userName() + " in track:" + parsedElements[i].track)
         }
     }
 
     // Find usable element (non-grace chord/rest or outermost tuplet)
-    function getParsedElement(element, parsedElements) {
-        var el = element
+    function getParsedElement(element, alreadyParsedElements) {
+        let el = element
         switch (el.type) {
             case Element.NOTE:
                 el = el.parent
@@ -139,8 +164,8 @@
             case Element.REST:
             case Element.TUPLET:
                 el = el.topTuplet ? el.topTuplet : el
-                for (var i in parsedElements) {
-                    if (parsedElements[i].is(el)) {
+                for (let i in alreadyParsedElements) {
+                    if (alreadyParsedElements[i].is(el)) {
                         return false
                     }
                 }
@@ -178,8 +203,8 @@
 
     // Returns the chords, rests and child tuplets within a tuplet
     function getTupletElements(tuplet) {
-        var elementsArray = []
-        for (var i in tuplet.elements) {
+        const elementsArray = []
+        for (let i in tuplet.elements) {
             if (tuplet.elements[i].type == Element.TUPLET) {
                 elementsArray.push(getTupletObj(tuplet.elements[i]))
             } else {
@@ -214,9 +239,9 @@
 
     // Creates a copy of notes used within a chord
     function getNotes(element) {
-        var notes = []
+        const notes = []
         if (element.type == Element.REST) return notes
-        for (var i in element.notes) {
+        for (let i in element.notes) {
             notes[i] = element.notes[i].clone()
         }
         return notes
@@ -224,17 +249,17 @@
 
     // retrieves the annotations (dynamics, tempo text, etc) of a non-grace chord/rest
     function getAnnotations(element) {
-        var annoList = []
-        var removeList = []
-        for (var i in element.parent.annotations) {
-            var el = element.parent.annotations[i]
+        const annoList = []
+        const removeList = []
+        for (let i in element.parent.annotations) {
+            const el = element.parent.annotations[i]
             // if (el.track == element.track) {
             if (el.track == element.track && el.type != Element.HARMONY) {  // v0.1.2
                 annoList.push(el.clone())
                 removeList.push(el)
             }
         }
-        for (var i in removeList) {
+        for (let i in removeList) {
             removeElement(removeList[i])
         }
         return annoList
@@ -242,9 +267,9 @@
 
     // Retrieves a chord's articulations
     function getArticulations(element) {
-        var artiList = []
+        const artiList = []
         if (element.type == Element.REST) return artiList
-        for (var i in element.articulations) {
+        for (let i in element.articulations) {
             artiList.push(element.articulations[i].clone())
         }
         return artiList
@@ -255,9 +280,9 @@
         if (element.type == Element.REST || !element.graceNotes.length) {
             return []
         }
-        var graceList = []
-        for (var i in element.graceNotes) {
-            var graceChord = element.graceNotes[0]
+        const graceList = []
+        for (let i in element.graceNotes) {
+            const graceChord = element.graceNotes[0]
             graceList.push({
                 duration: graceChord.duration,
                 notes: getNotes(graceChord),
@@ -271,7 +296,7 @@
     // Retrieves the type of grace note, formatted for the later add command
     // doesn't work with a switch statement
     function getGraceNoteType(graceChord) {
-        var type = graceChord.notes[0].noteType
+        const type = graceChord.notes[0].noteType
         if (type == NoteType.ACCIACCATURA)  return "acciaccatura"
         if (type == NoteType.APPOGGIATURA)  return "appoggiatura"
         if (type == NoteType.GRACE4)        return "grace4"
@@ -284,16 +309,16 @@
     }
 
     function getLyrics(element) {
-        var lyricList = []
-        var removeList = []
-        for (var i in element.lyrics) {
-            var el = element.lyrics[i]
+        const lyricList = []
+        const removeList = []
+        for (let i in element.lyrics) {
+            const el = element.lyrics[i]
             if (el.track == element.track) {
                 lyricList.push(el.clone())
                 removeList.push(el)
             }
         }
-        for (var i in removeList) {
+        for (let i in removeList) {
             removeElement(removeList[i])
         }
         return lyricList
@@ -302,7 +327,7 @@
     // Retrieves a list of notes with ties in a chordrest
     function getTies(element, cmd) {
         if (element.type == Element.REST) return
-        for (var i in element.notes) {
+        for (let i in element.notes) {
             //if (element.notes[i].tieBack) {
             if (element.notes[i].tieForward) {  // Modified for TupletConverter
                 allTies.push({
@@ -317,7 +342,7 @@
 
     // v0.1.6
     function getBends(element, cmd) {
-        var stEl = element.parent
+        const stEl = element.parent
         //var type = element.bendType
         //console.log("CHECK---get bend " + type + " from: " + stEl.userName() + " of pitch " + stEl.pitch)
         //console.log("CHECK---GuitarBendType standard-bend :" + GuitarBendType.BEND)
@@ -333,8 +358,8 @@
     }
 
     function getSpans(element, cmd) {
-        var stEl = element.spanner.startElement
-        var edEl = element.spanner.endElement
+        const stEl = element.spanner.startElement
+        const edEl = element.spanner.endElement
         console.log("CHECK---get spanner from: " + stEl.userName() + " at fraction " + stEl.fraction.numerator + "/" + stEl.fraction.denominator)
         console.log("CHECK---get spanner   to: " + edEl.userName() + " at fraction " + edEl.fraction.numerator + "/" + edEl.fraction.denominator)
         allSpans.push({
@@ -345,7 +370,7 @@
     }
 
     function addChordRestObj(cr, c) {
-        var t = c.fraction
+        const t = c.fraction
         /* v0.2.0 removed this
         if (c.element) {
             // Not necessarily invalid position, could be v2
@@ -372,8 +397,8 @@
             c.addNote(cr.notes[0].pitch)
             console.log("CHECK---Addes Dummy Note")
             c.rewindToFraction(t)
-            var n = c.element.notes[0]
-            for (var i in cr.notes) {
+            const n = c.element.notes[0]
+            for (let i in cr.notes) {
                 // Remove trailing spanners, then add
                 if (cr.notes[i].tieBack) {
                     removeElement(cr.notes[i].tieBack)
@@ -381,10 +406,10 @@
                 if (cr.notes[i].tieForward) {
                     removeElement(cr.notes[i].tieForward)
                 }
-                for (var j in cr.notes[i].spannerForward) {
+                for (let j in cr.notes[i].spannerForward) {
                     removeElement(cr.notes[i].spannerForward[j])
                 }
-                for (var j in cr.notes[i].spannerBack) {
+                for (let j in cr.notes[i].spannerBack) {
                     removeElement(cr.notes[i].spannerBack[j])
                 }
                 c.element.add(cr.notes[i])
@@ -413,7 +438,7 @@
     }
 
     function addTupletObj(tuplet, c) {
-        var t = c.fraction
+        let t = c.fraction
         /* v0.2.0 removed this
         if (c.element) {
             // Not necessarily invalid position, could be v2
@@ -422,8 +447,8 @@
             c.rewindToFraction(t)
         }
         */
-        var tupletLast = t.plus(tuplet.duration);
-        var measureLast = c.measure.lastSegment.fraction;
+        const tupletLast = t.plus(tuplet.duration);
+        const measureLast = c.measure.lastSegment.fraction;
         if (tupletLast.greaterThan(measureLast)) {  // v0.1.8
             throw new Error(qsTr("Unable to add tuplet, possibly overlaps measure boundaries"))
         }
@@ -432,7 +457,7 @@
         c.element.bracketType = tuplet.bracketType
         c.element.numberType = tuplet.numberType
         c.element.visible = tuplet.visible
-        for (var i in tuplet.elements) {
+        for (let i in tuplet.elements) {
             c.rewindToFraction(t)  // Modified for TupletConverter
             if (tuplet.elements[i].type == Element.TUPLET) {
                 addTupletObj(tuplet.elements[i], c)
@@ -449,7 +474,7 @@
 
     // Remove outer-most tuplet
     function addInnerTupletObj(tuplet, c) {
-        var t = c.fraction
+        let t = c.fraction
         console.log("CHECK---cursor fraction " + t.numerator + "/" + t.denominator)
         /* v0.2.0 remove this
         if (c.element) {
@@ -460,7 +485,7 @@
         }
         */
         console.log("CHECK---lastSegment fraction = " + curScore.lastSegment.fraction.numerator + "/" + curScore.lastSegment.fraction.denominator)
-        for (var i in tuplet.elements) {
+        for (let i in tuplet.elements) {
             console.log("Element #" + i + " in tuplet is added to fraction " + t.numerator + "/" + t.denominator)
             if (!t.lessThan(curScore.lastSegment.fraction)) {  // v0.1.9
                 console.log("CHECK---Over the last tick of score")
@@ -478,21 +503,21 @@
     }
 
     function addAnnotations(cursor, annotations) {
-        for (var i in cursor.segment.annotations) {
-            var el = cursor.segment.annotations[i]
+        for (let i in cursor.segment.annotations) {
+            const el = cursor.segment.annotations[i]
             // if (el.track == cursor.track) {
             if (el.track == cursor.track && el.type != Element.HARMONY) {  // v0.1.2
                 removeElement(el)
             }
         }
-        for (var i in annotations) {
-            var el = annotations[i]
+        for (let i in annotations) {
+            const el = annotations[i]
             cursor.add(el)
         }
     }
 
     function addArticulations(cursor, artiList) {
-        for (var i in artiList) {
+        for (let i in artiList) {
             cursor.add(artiList[i])
         }
     }
@@ -501,14 +526,14 @@
         if (graceList.length == 0) {
             return
         }
-        for (var i = graceList.length - 1; i >= 0; i--) {
+        for (let i = graceList.length - 1; i >= 0; i--) {
             curScore.selection.select(note, false)
             cmd(graceList[i].type)
         }
-        var graceNotes = note.parent.graceNotes
-        for (var i in graceList) {
-            var toRemove = graceNotes[i].notes[0]
-            for (var j in graceList[i].notes) {
+        const graceNotes = note.parent.graceNotes
+        for (let i in graceList) {
+            const toRemove = graceNotes[i].notes[0]
+            for (let j in graceList[i].notes) {
                 graceNotes[i].add(graceList[i].notes[j])
             }
             removeElement(toRemove)
@@ -518,21 +543,21 @@
 
     // v0.1.4
     function addLyrics(cursor, lyrics) {
-        for (var i in cursor.segment.lyrics) {
-            var el = cursor.segment.lyrics[i]
+        for (let i in cursor.segment.lyrics) {
+            const el = cursor.segment.lyrics[i]
             if (el.track == cursor.track) {
                 removeElement(el)
             }
         }
-        for (var i in lyrics) {
-            var el = lyrics[i]
+        for (let i in lyrics) {
+            const el = lyrics[i]
             cursor.add(el)
         }
     }
 
     function addTies() {
-        var c = curScore.newCursor()
-        for (var i in allTies) {
+        const c = curScore.newCursor()
+        for (let i in allTies) {
             c.track = allTies[i].track
             c.rewindToFraction(allTies[i].startTick) // Since we want the end position here, don't add actualDuration
             console.log("addTies #1: cursor at fraction " + c.fraction.numerator + "/" + c.fraction.denominator)
@@ -548,13 +573,13 @@
 
   	// v0.1.6
     function addBends() {
-        var c = curScore.newCursor()
-        for (var i in allBends) {
-            var stEl = allBends[i].startElement
+        const c = curScore.newCursor()
+        for (let i in allBends) {
+            let stEl = allBends[i].startElement
             console.log("CHECK---bend#" + i + ": start element " + stEl.userName())
 
-            for (var j in copiedChords) {
-                for (var k in copiedChords[j].old.notes) {
+            for (let j in copiedChords) {
+                for (let k in copiedChords[j].old.notes) {
                     if (stEl.is(copiedChords[j].old.notes[k])) {
                         stEl = copiedChords[j].new.notes[k]
                     }
@@ -567,14 +592,14 @@
 
 	// v0.1.5
     function addSpans() {
-        var c = curScore.newCursor()
-        for (var i in allSpans) {
-            var stEl = allSpans[i].startElement
-            var edEl = allSpans[i].endElement
+        //const c = curScore.newCursor()
+        for (let i in allSpans) {
+            let stEl = allSpans[i].startElement
+            let edEl = allSpans[i].endElement
             console.log("CHECK---span#" + i + ": start element " + stEl.userName())
             console.log("CHECK---span#" + i + ": end   element " + edEl.userName())
 
-            for (var j in copiedChords) {
+            for (let j in copiedChords) {
                 if (stEl.is(copiedChords[j].old)) {
                     stEl = copiedChords[j].new
                 }
@@ -600,7 +625,7 @@
                 endStaff: curScore.selection.endStaff
             }
         }
-        var selectObj = {
+        const selectObj = {
             isRange: false,
             elements: []
         }
@@ -610,7 +635,7 @@
             console.log("A single tuplet mark cannot be selected.")
             return false
         }
-        for (var i in curScore.selection.elements) {
+        for (let i in curScore.selection.elements) {
             selectObj.elements.push(curScore.selection.elements[i])
         }
         return selectObj
@@ -632,7 +657,7 @@
             curScore.selection.select(selectObj.elements[i], true)
         }
         */
-        for (var i in parsedSelection) {  // v0.1.3 (trial)
+        for (let i in parsedSelection) {  // v0.1.3 (trial)
             if (parsedSelection[i].staff) {
                 curScore.selection.select(parsedSelection[i], true)
                 console.log("element #" + i + "(" + curScore.selection.elements[i].userName() + ") at fraction " + curScore.selection.elements[i].fraction.numerator + "/" +  curScore.selection.elements[i].fraction.denominator + " on track" + curScore.selection.elements[i].track)
